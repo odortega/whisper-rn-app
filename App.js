@@ -9,6 +9,7 @@ import {
   Platform,
   PermissionsAndroid,
 } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import RNFS from "react-native-fs";
 import { unzip } from "react-native-zip-archive";
 import Sound from "react-native-sound";
@@ -49,6 +50,21 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   logText: { fontSize: 12, color: "#333" },
+  label: {
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  picker: {
+    width: 300,
+    height: 44,
+    backgroundColor: "#FFF",
+    borderColor: "#000",
+    borderWidth: 1,
+  },
+  selected: {
+    marginTop: 20,
+    fontSize: 16,
+  },
 });
 
 function toTimestamp(t, comma = false) {
@@ -97,6 +113,27 @@ export default function App() {
   const [logs, setLogs] = useState([`whisper.cpp version: ${libVersion}`]);
   const [transcibeResult, setTranscibeResult] = useState(null);
   const [stopTranscribe, setStopTranscribe] = useState(null);
+  const [selectedModel, setSelectedModel] = useState("ggml-base.bin");
+
+  const models = [
+    { model: "ml-tiny.bin", size: "77.7 MB" },
+    { model: "ml-tiny.en.bin", size: "77.7 MB" },
+    { model: "ml-tiny-q5_1.bin", size: "32.2 MB" },
+    { model: "ml-tiny.en-q5_1.bin", size: "32.2 MB" },
+    { model: "ml-tiny.en-q8_0.bin", size: "43.6 MB" },
+    { model: "ml-base.bin", size: "148 MB" },
+    { model: "ml-base-q5_1.bin", size: "59.7 MB" },
+    { model: "ml-base.en-q5_1.bin", size: "59.7 MB" },
+    { model: "ml-base.en.bin", size: "148 MB" },
+    { model: "ml-small-q5_1.bin", size: "190 MB" },
+    { model: "ml-small.en-q5_1.bin", size: "190 MB" },
+    { model: "ml-small.en.bin", size: "488 MB" },
+    { model: "ml-small.bin", size: "488 MB" },
+    { model: "ml-medium-q5_0.bin", size: "539 MB" },
+    { model: "ml-medium.en-q5_0.bin", size: "539 MB" },
+    { model: "ml-medium.bin", size: "1.53 GB" },
+    { model: "ml-medium.en.bin", size: "1.53 GB" },
+  ];
 
   const log = useCallback((...messages) => {
     setLogs((prev) => [...prev, messages.join(" ")]);
@@ -116,6 +153,86 @@ export default function App() {
       contentContainerStyle={styles.scrollview}
     >
       <SafeAreaView style={styles.container}>
+        <Text style={styles.label}>Select a Model:</Text>
+        <Picker
+          selectedValue={selectedModel}
+          style={styles.picker}
+          onValueChange={(itemValue, itemIndex) => setSelectedModel(itemValue)}
+        >
+          {models.map((item, index) => (
+            <Picker.Item
+              key={index}
+              label={`${item.model} (${item.size})`}
+              value={item.model}
+            />
+          ))}
+        </Picker>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={async () => {
+            if (whisperContext) {
+              log("Found previous context");
+              await whisperContext.release();
+              setWhisperContext(null);
+              log("Released previous context");
+            }
+            await createDir(log);
+            const modelFilePath = `${fileDir}/${selectedModel}`;
+            if (await RNFS.exists(modelFilePath)) {
+              log("Model already exists:");
+              log(filterPath(modelFilePath));
+            } else {
+              log("Start Download Model to:");
+              log(filterPath(modelFilePath));
+              await RNFS.downloadFile({
+                fromUrl: `${modelHost}/${selectedModel}`,
+                toFile: modelFilePath,
+                progressInterval: 1000,
+                begin: () => {},
+                progress,
+              }).promise;
+              log("Downloaded model file:");
+              log(filterPath(modelFilePath));
+            }
+
+            // If you don't want to enable Core ML, you can remove this
+            // const coremlModelFilePath = `${fileDir}/ggml-base-encoder.mlmodelc.zip`;
+            // if (
+            //   Platform.OS === "ios" &&
+            //   (await RNFS.exists(coremlModelFilePath))
+            // ) {
+            //   log("Core ML Model already exists:");
+            //   log(filterPath(coremlModelFilePath));
+            // } else if (Platform.OS === "ios") {
+            //   log("Start Download Core ML Model to:");
+            //   log(filterPath(coremlModelFilePath));
+            //   await RNFS.downloadFile({
+            //     fromUrl: `${modelHost}/ggml-base-encoder.mlmodelc.zip`,
+            //     toFile: coremlModelFilePath,
+            //     progressInterval: 1000,
+            //     begin: () => {},
+            //     progress,
+            //   }).promise;
+            //   log("Downloaded Core ML Model model file:");
+            //   log(filterPath(modelFilePath));
+            //   await unzip(coremlModelFilePath, fileDir);
+            //   log("Unzipped Core ML Model model successfully.");
+            // }
+
+            log("Initialize context...");
+            const startTime = Date.now();
+            const ctx = await initWhisper({ filePath: modelFilePath });
+            const endTime = Date.now();
+            log("Loaded model, ID:", ctx.id);
+            log("Loaded model in", endTime - startTime, `ms in ${mode} mode`);
+            setWhisperContext(ctx);
+          }}
+        >
+          <Text style={styles.buttonText}>
+            {`Initialize(Download): ${selectedModel}`}
+          </Text>
+        </TouchableOpacity>
+
         <View style={styles.buttons}>
           <TouchableOpacity
             style={styles.button}
@@ -139,69 +256,6 @@ export default function App() {
             }}
           >
             <Text style={styles.buttonText}>Initialize (Use Asset)</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={async () => {
-              if (whisperContext) {
-                log("Found previous context");
-                await whisperContext.release();
-                setWhisperContext(null);
-                log("Released previous context");
-              }
-              await createDir(log);
-              const modelFilePath = `${fileDir}/ggml-base.bin`;
-              if (await RNFS.exists(modelFilePath)) {
-                log("Model already exists:");
-                log(filterPath(modelFilePath));
-              } else {
-                log("Start Download Model to:");
-                log(filterPath(modelFilePath));
-                await RNFS.downloadFile({
-                  fromUrl: `${modelHost}/ggml-base.bin`,
-                  toFile: modelFilePath,
-                  progressInterval: 1000,
-                  begin: () => {},
-                  progress,
-                }).promise;
-                log("Downloaded model file:");
-                log(filterPath(modelFilePath));
-              }
-
-              // If you don't want to enable Core ML, you can remove this
-              const coremlModelFilePath = `${fileDir}/ggml-base-encoder.mlmodelc.zip`;
-              if (
-                Platform.OS === "ios" &&
-                (await RNFS.exists(coremlModelFilePath))
-              ) {
-                log("Core ML Model already exists:");
-                log(filterPath(coremlModelFilePath));
-              } else if (Platform.OS === "ios") {
-                log("Start Download Core ML Model to:");
-                log(filterPath(coremlModelFilePath));
-                await RNFS.downloadFile({
-                  fromUrl: `${modelHost}/ggml-base-encoder.mlmodelc.zip`,
-                  toFile: coremlModelFilePath,
-                  progressInterval: 1000,
-                  begin: () => {},
-                  progress,
-                }).promise;
-                log("Downloaded Core ML Model model file:");
-                log(filterPath(modelFilePath));
-                await unzip(coremlModelFilePath, fileDir);
-                log("Unzipped Core ML Model model successfully.");
-              }
-
-              log("Initialize context...");
-              const startTime = Date.now();
-              const ctx = await initWhisper({ filePath: modelFilePath });
-              const endTime = Date.now();
-              log("Loaded model, ID:", ctx.id);
-              log("Loaded model in", endTime - startTime, `ms in ${mode} mode`);
-              setWhisperContext(ctx);
-            }}
-          >
-            <Text style={styles.buttonText}>Initialize (Download)</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.buttons}>
