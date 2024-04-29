@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 7.8.4"
+    "version": ">= 7.8.4",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -10,9 +11,17 @@
     "preview": {
       "distribution": "internal"
     },
-    "production": {}
+    "production": {
+      "autoIncrement": true
+    }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "SECRET",
+        "ascAppId": "SECRET",
+        "appleTeamId": "SECRET"
+      }
+    }
   }
 }
