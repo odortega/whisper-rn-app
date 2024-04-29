@@ -1,9 +1,10 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import {
   StyleSheet,
   ScrollView,
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   SafeAreaView,
   Platform,
@@ -65,6 +66,14 @@ const styles = StyleSheet.create({
     marginTop: 20,
     fontSize: 16,
   },
+  textInput: {
+    height: 100, // Set the height appropriately
+    width: "100%",
+    borderColor: "gray",
+    borderWidth: 1,
+    textAlignVertical: "top", // This ensures text starts at the top of the textbox
+    padding: 10,
+  },
 });
 
 function toTimestamp(t, comma = false) {
@@ -114,6 +123,7 @@ export default function App() {
   const [transcibeResult, setTranscibeResult] = useState(null);
   const [stopTranscribe, setStopTranscribe] = useState(null);
   const [selectedModel, setSelectedModel] = useState("ggml-base.bin");
+  const [prompt, setPrompt] = useState("");
 
   const models = [
     { model: "ggml-tiny.bin", size: "77.7 MB" },
@@ -153,6 +163,14 @@ export default function App() {
       contentContainerStyle={styles.scrollview}
     >
       <SafeAreaView style={styles.container}>
+        <TextInput
+          style={styles.textInput}
+          multiline
+          numberOfLines={4} // You can adjust the number of lines
+          onChangeText={(prompt) => setPrompt(prompt)}
+          value={prompt}
+          placeholder="Type something..."
+        />
         <Text style={styles.label}>Select a Model:</Text>
         <Picker
           selectedValue={selectedModel}
@@ -196,7 +214,7 @@ export default function App() {
             }
 
             // If you don't want to enable Core ML, you can remove this
-            // const coremlModelFilePath = `${fileDir}/ggml-base-encoder.mlmodelc.zip`;
+            // const coremlModelFilePath = `${fileDir}/ggml-tiny-encoder.mlmodelc.zip`;
             // if (
             //   Platform.OS === "ios" &&
             //   (await RNFS.exists(coremlModelFilePath))
@@ -207,7 +225,7 @@ export default function App() {
             //   log("Start Download Core ML Model to:");
             //   log(filterPath(coremlModelFilePath));
             //   await RNFS.downloadFile({
-            //     fromUrl: `${modelHost}/ggml-base-encoder.mlmodelc.zip`,
+            //     fromUrl: `${modelHost}/ggml-tiny-encoder.mlmodelc.zip`,
             //     toFile: coremlModelFilePath,
             //     progressInterval: 1000,
             //     begin: () => {},
@@ -275,13 +293,15 @@ export default function App() {
                     },
                     audioSessionOnStopIos: "restore", // Or an AudioSessionSettingIos
                     // Voice Activity Detection - Start transcribing when speech is detected
-                    // useVad: true,
+                    useVad: true,
+                    prompt: prompt,
                   });
                 setStopTranscribe({ stop });
                 subscribe((evt) => {
                   const { isCapturing, data, processTime, recordingTime } = evt;
                   setTranscibeResult(
                     `Realtime transcribing: ${isCapturing ? "ON" : "OFF"}\n` +
+                      `Prompt: ${prompt}\n\n` +
                       `Result: ${data?.result}\n\n` +
                       `Process time: ${processTime}ms\n` +
                       `Recording time: ${recordingTime}ms` +
