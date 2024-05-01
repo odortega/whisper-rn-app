@@ -139,8 +139,8 @@ export default function App() {
   const [prompt, setPrompt] = useState("");
   const [useVad, setUseVad] = useState(false);
   const [language, setLanguage] = useState("en");
-  const [realtimeAudioSec, setRealtimeAudioSec] = useState(60);
-  const [realtimeAudioSliceSec, setRealtimeAudioSliceSec] = useState(25);
+  const [realtimeAudioSec, setRealtimeAudioSec] = useState("60");
+  const [realtimeAudioSliceSec, setRealtimeAudioSliceSec] = useState("25");
 
   const models = [
     { model: "ggml-tiny.bin", size: "77.7 MB" },
@@ -343,9 +343,10 @@ export default function App() {
                     // Enable beam search (may be slower than greedy but more accurate)
                     // beamSize: 2,
                     // Record duration in seconds
-                    realtimeAudioSec: realtimeAudioSec || 60,
+                    realtimeAudioSec: parseInt(realtimeAudioSec) || 60,
                     // Slice audio into 25 (or < 30) sec chunks for better performance
-                    realtimeAudioSliceSec: realtimeAudioSliceSec || 25,
+                    realtimeAudioSliceSec:
+                      parseInt(realtimeAudioSliceSec) || 25,
                     // Save audio on stop
                     audioOutputPath: recordFile,
                     // iOS Audio Session
