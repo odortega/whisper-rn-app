@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   SafeAreaView,
+  Switch,
   Platform,
   PermissionsAndroid,
 } from "react-native";
@@ -74,6 +75,18 @@ const styles = StyleSheet.create({
     textAlignVertical: "top", // This ensures text starts at the top of the textbox
     padding: 10,
   },
+  item: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "gray",
+    flex: 1,
+    marginLeft: 10,
+    padding: 10,
+  },
 });
 
 function toTimestamp(t, comma = false) {
@@ -124,6 +137,10 @@ export default function App() {
   const [stopTranscribe, setStopTranscribe] = useState(null);
   const [selectedModel, setSelectedModel] = useState("ggml-base.bin");
   const [prompt, setPrompt] = useState("");
+  const [useVad, setUseVad] = useState(false);
+  const [language, setLanguage] = useState("en");
+  const [realtimeAudioSec, setRealtimeAudioSec] = useState("60");
+  const [realtimeAudioSliceSec, setRealtimeAudioSliceSec] = useState("25");
 
   const models = [
     { model: "ggml-tiny.bin", size: "77.7 MB" },
@@ -163,6 +180,55 @@ export default function App() {
       contentContainerStyle={styles.scrollview}
     >
       <SafeAreaView style={styles.container}>
+        {/* Checkbox for useVad */}
+        <View style={styles.item}>
+          <Text>Use VAD:</Text>
+          <Switch
+            value={useVad}
+            onValueChange={(newVal) => setUseVad(newVal)}
+          />
+        </View>
+
+        {/* Input text for language */}
+        <View style={styles.item}>
+          <Text>Language (2 chars max):</Text>
+          <TextInput
+            style={styles.input}
+            value={language}
+            onChangeText={(text) => setLanguage(text.substring(0, 2))}
+            maxLength={2}
+          />
+        </View>
+
+        {/* Input text for realtimeAudioSec */}
+        <View style={styles.item}>
+          <Text>Realtime Audio Sec (3 chars max):</Text>
+          <TextInput
+            style={styles.input}
+            value={realtimeAudioSec}
+            onChangeText={(text) =>
+              setRealtimeAudioSec(text.replace(/[^0-9]/g, "").substring(0, 3))
+            }
+            maxLength={3}
+            keyboardType="numeric"
+          />
+        </View>
+
+        {/* Input text for realtimeAudioSliceSec */}
+        <View style={styles.item}>
+          <Text>Realtime Audio Slice Sec (3 chars max):</Text>
+          <TextInput
+            style={styles.input}
+            value={realtimeAudioSliceSec}
+            onChangeText={(text) =>
+              setRealtimeAudioSliceSec(
+                text.replace(/[^0-9]/g, "").substring(0, 3)
+              )
+            }
+            maxLength={3}
+            keyboardType="numeric"
+          />
+        </View>
         <TextInput
           style={styles.textInput}
           multiline
@@ -273,13 +339,14 @@ export default function App() {
                 const { stop, subscribe } =
                   await whisperContext.transcribeRealtime({
                     maxLen: 1,
-                    language: "en",
+                    language: language || "en",
                     // Enable beam search (may be slower than greedy but more accurate)
                     // beamSize: 2,
                     // Record duration in seconds
-                    realtimeAudioSec: 60,
+                    realtimeAudioSec: parseInt(realtimeAudioSec) || 60,
                     // Slice audio into 25 (or < 30) sec chunks for better performance
-                    realtimeAudioSliceSec: 25,
+                    realtimeAudioSliceSec:
+                      parseInt(realtimeAudioSliceSec) || 25,
                     // Save audio on stop
                     audioOutputPath: recordFile,
                     // iOS Audio Session
@@ -293,7 +360,7 @@ export default function App() {
                     },
                     audioSessionOnStopIos: "restore", // Or an AudioSessionSettingIos
                     // Voice Activity Detection - Start transcribing when speech is detected
-                    useVad: true,
+                    useVad: useVad,
                     prompt: prompt,
                   });
                 setStopTranscribe({ stop });
@@ -301,7 +368,11 @@ export default function App() {
                   const { isCapturing, data, processTime, recordingTime } = evt;
                   setTranscibeResult(
                     `Realtime transcribing: ${isCapturing ? "ON" : "OFF"}\n` +
-                      `Prompt: ${prompt}\n\n` +
+                      `Prompt: ${prompt}\n` +
+                      `useVad: ${useVad}\n` +
+                      `language: ${language}\n` +
+                      `realtimeAudioSec: ${realtimeAudioSec}\n` +
+                      `realtimeAudioSliceSec: ${realtimeAudioSliceSec}\n\n\n` +
                       `Result: ${data?.result}\n\n` +
                       `Process time: ${processTime}ms\n` +
                       `Recording time: ${recordingTime}ms` +
