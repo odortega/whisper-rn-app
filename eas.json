@@ -18,9 +18,9 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "SECRET",
-        "ascAppId": "SECRET",
-        "appleTeamId": "SECRET"
+        "appleId": "${secrets.WHISPER_RN_APPLE_ID}",
+        "ascAppId": "${secrets.WHISPER_RN_ASC_APP_ID}",
+        "appleTeamId": "${secrets.WHISPER_RN_APPLE_TEAM_ID}"
       }
     }
   }
